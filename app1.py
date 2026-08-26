@@ -40,22 +40,43 @@ st.info("Aplikasi ini dikembangkan secara eksklusif oleh Tim Internal Audit - PT
 
 st.markdown("---")
 
-# Helper Browser Launcher Lintas Platform
+# Helper Browser Launcher Khusus Anti-Bot & Bypass Firewall
 def luncurkan_browser(p, session_name):
     session_path = os.path.join(os.getcwd(), session_name)
     args_browser = [
         "--disable-blink-features=AutomationControlled",
         "--no-sandbox",
         "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage"
+        "--disable-dev-shm-usage",
+        "--disable-http2",
+        "--disable-web-security",
+        "--disable-features=IsolateOrigins,site-per-process",
+        "--window-size=1920,1080",
+        "--lang=id-ID,id"
     ]
+    
+    headers_kamuflase = {
+        "accept-language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
+        "sec-ch-ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "document",
+        "sec-fetch-mode": "navigate",
+        "sec-fetch-site": "none",
+        "sec-fetch-user": "?1",
+        "upgrade-insecure-requests": "1"
+    }
     
     if IS_CLOUD:
         return p.chromium.launch_persistent_context(
             user_data_dir=session_path,
             headless=True,
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            locale="id-ID",
+            timezone_id="Asia/Jakarta",
+            extra_http_headers=headers_kamuflase,
             args=args_browser,
-            viewport={"width": 1280, "height": 800}
+            viewport={"width": 1366, "height": 768}
         )
     else:
         try:
@@ -83,6 +104,16 @@ def luncurkan_browser(p, session_name):
                     viewport=None
                 )
 
+# Helper Inisialisasi Script Siluman Browser
+def siapkan_halaman(page):
+    page.add_init_script("""
+        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+        window.chrome = { runtime: {} };
+        Object.defineProperty(navigator, 'languages', { get: () => ['id-ID', 'id', 'en-US', 'en'] });
+        Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+    """)
+
+
 # ====================================================================
 # ENGINE 1: TOKOPEDIA LIVE SCRAPER
 # ====================================================================
@@ -95,7 +126,7 @@ def ambil_data_tokopedia_live(keyword):
         with sync_playwright() as p:
             browser_context = luncurkan_browser(p, "sesi_tokopedia")
             page = browser_context.pages[0] if browser_context.pages else browser_context.new_page()
-            page.add_init_script("Object.defineProperty(navigator, 'webdriver', { get: () => undefined });")
+            siapkan_halaman(page)
             
             page.goto(url, wait_until="domcontentloaded", timeout=25000)
             page.wait_for_timeout(3000)
@@ -200,7 +231,8 @@ def ambil_data_indomaret_live(keyword):
         with sync_playwright() as p:
             browser_context = luncurkan_browser(p, "sesi_indomaret")
             page = browser_context.pages[0] if browser_context.pages else browser_context.new_page()
-            page.add_init_script("Object.defineProperty(navigator, 'webdriver', { get: () => undefined });")
+            siapkan_halaman(page)
+            
             page.goto(url, wait_until="domcontentloaded", timeout=25000)
             page.wait_for_timeout(4000)
             
@@ -259,9 +291,9 @@ def ambil_data_indogrosir_live(keyword):
         with sync_playwright() as p:
             browser_context = luncurkan_browser(p, "sesi_indogrosir")
             page = browser_context.pages[0] if browser_context.pages else browser_context.new_page()
-            page.add_init_script("Object.defineProperty(navigator, 'webdriver', { get: () => undefined });")
-            page.goto(url, wait_until="domcontentloaded", timeout=25000)
+            siapkan_halaman(page)
             
+            page.goto(url, wait_until="domcontentloaded", timeout=25000)
             page.wait_for_timeout(3000)
             page.mouse.wheel(0, 1500) 
             page.wait_for_timeout(3000)
