@@ -10,6 +10,7 @@ import asyncio
 import sys
 import os
 import subprocess
+import time
 
 # 1. Perbaikan Event Loop untuk Windows
 if sys.platform == 'win32':
@@ -21,18 +22,18 @@ if sys.platform == 'win32':
 # 2. Deteksi Otomatis Lingkungan (Cloud Linux vs Lokal Windows)
 IS_CLOUD = os.environ.get("STREAMLIT_SHARING_HOST") is not None or sys.platform != "win32"
 
-# 3. Auto-install Browser Chromium jika dijalankan di Streamlit Cloud
+# 3. Auto-install Browser Chromium jika di Cloud
 @st.cache_resource
 def instal_browser_cloud():
     if IS_CLOUD:
         try:
             subprocess.run(["playwright", "install", "chromium"], check=True)
         except Exception as e:
-            st.error(f"Gagal inisialisasi browser cloud: {e}")
+            st.error(f"Gagal inisialisasi browser: {e}")
 
 instal_browser_cloud()
 
-# Konfigurasi halaman dashboard
+# Konfigurasi Halaman Dashboard
 st.set_page_config(page_title="Sembako Comparison Engine", layout="wide")
 st.title("📊 Dashboard Komparasi Harga Sembako Premium")
 st.write("Sistem Pemantauan Disparitas Harga Internal Koperasi Desa Kelurahan Merah Putih vs Triple-Market Engine (Tokopedia, Indomaret & Indogrosir)")
@@ -40,7 +41,9 @@ st.info("Aplikasi ini dikembangkan secara eksklusif oleh Tim Internal Audit - PT
 
 st.markdown("---")
 
-# Helper Browser Launcher Khusus Anti-Bot & Bypass Firewall
+# ====================================================================
+# MODUL PERILAKU MANUSIA (HUMAN BEHAVIOR EMULATOR)
+# ====================================================================
 def luncurkan_browser(p, session_name):
     session_path = os.path.join(os.getcwd(), session_name)
     args_browser = [
@@ -57,7 +60,7 @@ def luncurkan_browser(p, session_name):
     
     headers_kamuflase = {
         "accept-language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
-        "sec-ch-ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+        "sec-ch-ua": '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
         "sec-ch-ua-mobile": "?0",
         "sec-ch-ua-platform": '"Windows"',
         "sec-fetch-dest": "document",
@@ -66,12 +69,12 @@ def luncurkan_browser(p, session_name):
         "sec-fetch-user": "?1",
         "upgrade-insecure-requests": "1"
     }
-    
+
     if IS_CLOUD:
         return p.chromium.launch_persistent_context(
             user_data_dir=session_path,
             headless=True,
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
             locale="id-ID",
             timezone_id="Asia/Jakarta",
             extra_http_headers=headers_kamuflase,
@@ -88,30 +91,44 @@ def luncurkan_browser(p, session_name):
                 viewport=None
             )
         except Exception:
-            try:
-                return p.chromium.launch_persistent_context(
-                    user_data_dir=session_path,
-                    headless=False,
-                    channel="msedge",
-                    args=args_browser + ["--start-maximized"],
-                    viewport=None
-                )
-            except Exception:
-                return p.chromium.launch_persistent_context(
-                    user_data_dir=session_path,
-                    headless=False,
-                    args=args_browser + ["--start-maximized"],
-                    viewport=None
-                )
+            return p.chromium.launch_persistent_context(
+                user_data_dir=session_path,
+                headless=False,
+                args=args_browser + ["--start-maximized"],
+                viewport=None
+            )
 
-# Helper Inisialisasi Script Siluman Browser
-def siapkan_halaman(page):
+def siapkan_halaman_manusia(page):
     page.add_init_script("""
         Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-        window.chrome = { runtime: {} };
+        window.chrome = { runtime: {}, loadTimes: function() {}, csi: function() {}, app: {} };
         Object.defineProperty(navigator, 'languages', { get: () => ['id-ID', 'id', 'en-US', 'en'] });
         Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+        const originalQuery = window.navigator.permissions.query;
+        window.navigator.permissions.query = (parameters) => (
+            parameters.name === 'notifications' ?
+                Promise.resolve({ state: Notification.permission }) :
+                originalQuery(parameters)
+        );
     """)
+
+def simulasi_interaksi_manusia(page):
+    # 1. Gerakan kursor acak bertahap
+    for _ in range(random.randint(2, 4)):
+        x_target = random.randint(150, 750)
+        y_target = random.randint(200, 600)
+        page.mouse.move(x_target, y_target, steps=random.randint(10, 20))
+        time.sleep(random.uniform(0.2, 0.6))
+    
+    # 2. Scrolling santai bertahap seperti manusia membaca layar
+    for _ in range(3):
+        scroll_y = random.randint(300, 500)
+        page.mouse.wheel(0, scroll_y)
+        time.sleep(random.uniform(0.8, 1.6))
+        
+    # 3. Sedikit scroll balik ke atas
+    page.mouse.wheel(0, -random.randint(100, 250))
+    time.sleep(random.uniform(0.5, 1.0))
 
 
 # ====================================================================
@@ -126,12 +143,11 @@ def ambil_data_tokopedia_live(keyword):
         with sync_playwright() as p:
             browser_context = luncurkan_browser(p, "sesi_tokopedia")
             page = browser_context.pages[0] if browser_context.pages else browser_context.new_page()
-            siapkan_halaman(page)
+            siapkan_halaman_manusia(page)
             
             page.goto(url, wait_until="domcontentloaded", timeout=25000)
-            page.wait_for_timeout(3000)
-            page.mouse.wheel(0, 1500) 
-            page.wait_for_timeout(3000)
+            time.sleep(random.uniform(1.5, 2.5))
+            simulasi_interaksi_manusia(page)
             
             page.screenshot(path="mata_tokopedia.png")
             
@@ -231,10 +247,11 @@ def ambil_data_indomaret_live(keyword):
         with sync_playwright() as p:
             browser_context = luncurkan_browser(p, "sesi_indomaret")
             page = browser_context.pages[0] if browser_context.pages else browser_context.new_page()
-            siapkan_halaman(page)
+            siapkan_halaman_manusia(page)
             
             page.goto(url, wait_until="domcontentloaded", timeout=25000)
-            page.wait_for_timeout(4000)
+            time.sleep(random.uniform(2.0, 3.0))
+            simulasi_interaksi_manusia(page)
             
             page.screenshot(path="mata_indomaret.png")
             
@@ -291,12 +308,11 @@ def ambil_data_indogrosir_live(keyword):
         with sync_playwright() as p:
             browser_context = luncurkan_browser(p, "sesi_indogrosir")
             page = browser_context.pages[0] if browser_context.pages else browser_context.new_page()
-            siapkan_halaman(page)
+            siapkan_halaman_manusia(page)
             
             page.goto(url, wait_until="domcontentloaded", timeout=25000)
-            page.wait_for_timeout(3000)
-            page.mouse.wheel(0, 1500) 
-            page.wait_for_timeout(3000)
+            time.sleep(random.uniform(2.0, 3.0))
+            simulasi_interaksi_manusia(page)
             
             page.screenshot(path="mata_indogrosir.png")
             
